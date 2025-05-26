@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
 const { StdioClientTransport } = require("@modelcontextprotocol/sdk/client/stdio.js");
+const { StreamableHTTPClientTransport } = require("@modelcontextprotocol/sdk/client/streamableHttp.js");
 const { SSEClientTransport } = require("@modelcontextprotocol/sdk/client/sse.js");
 
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
@@ -118,8 +119,15 @@ class MCPClient {
       const client = new Client({name: serverName, version: "0.1.0"});
       if (server.url) {
         // SSE连接
-        const transport = new SSEClientTransport(server.url);
-        await client.connect(transport);
+        const baseUrl = new URL(server.url);
+        try {
+          const transport = new StreamableHTTPClientTransport(baseUrl);
+          await client.connect(transport);
+        } catch (e) {
+          console.error("Failed to connect to streamable server");
+          const transport = new SSEClientTransport(baseUrl);
+          await client.connect(transport);
+        }
       } else {
         // Stdio连接
         const transport = new StdioClientTransport({
