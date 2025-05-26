@@ -1,0 +1,30 @@
+{
+    "mcpServers": {
+        "filesystem": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "/root/projects/"
+            ]
+        },
+        "calculator": {
+            "command": "python",
+            "args": [
+                "../tools/calculator.py"
+            ]
+        },
+        "time": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "mcp/time"
+            ]
+        },
+        "amap-maps": {
+            "url": "https://mcp.api-inference.modelscope.cn/sse/xxx"
+        }
+    }
+}
