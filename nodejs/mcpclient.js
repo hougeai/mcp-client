@@ -132,7 +132,8 @@ class MCPClient {
         // Stdio连接
         const transport = new StdioClientTransport({
           command: server.command,
-          args: server.args
+          args: server.args,
+          env: server.env
         });
         await client.connect(transport);
       }

@@ -119,7 +119,7 @@ class MCPClient:
         server_params = StdioServerParameters(
             command=server['command'],
             args=server['args'],
-            env=None
+            env=server.get('env', None),
         )
         # 使用 stdio_client 创建与服务器的 stdio 传输
         read, write = await self.exit_stack.enter_async_context(stdio_client(server_params))
