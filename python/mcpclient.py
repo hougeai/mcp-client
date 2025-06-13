@@ -8,6 +8,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.websocket import websocket_client
 
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -47,7 +48,7 @@ class MCPClient:
         content = ''
         tool_function = {}
         for chunk in response:
-            # print(chunk)
+            print(chunk)
             tool_calls = chunk.choices[0].delta.tool_calls
             if tool_calls:
                 tool_call = tool_calls[0]
@@ -57,7 +58,7 @@ class MCPClient:
                         "type": tool_call.type,
                         "function": {
                             "name": tool_call.function.name,
-                            "arguments": tool_call.function.arguments
+                            "arguments": tool_call.function.arguments if tool_call.function.arguments else ''
                         }
                     }
                 elif tool_call.function.arguments:
@@ -136,8 +137,11 @@ class MCPClient:
     async def connect_sse_server(self, server_name: str):
         """连接到 sse MCP 服务器"""
         server = self.mcp_server_config[server_name]
-        # read, write, _ = await self.exit_stack.enter_async_context(streamablehttp_client(server['url']))
-        read, write = await self.exit_stack.enter_async_context(sse_client(server['url']))
+        try:
+            read, write, _ = await self.exit_stack.enter_async_context(streamablehttp_client(server['url']))
+        except Exception as e:
+            print(f"Failed to connect to streamable server {server['url']}: {e}")
+            read, write = await self.exit_stack.enter_async_context(sse_client(server['url']))
         session = await self.exit_stack.enter_async_context(ClientSession(read, write))
         await session.initialize()
         response = await session.list_tools()
@@ -145,10 +149,22 @@ class MCPClient:
         # print(tools)
         return session, tools
 
+    async def connect_websocket_server(self, server_name: str):
+        """连接到 websocket MCP 服务器"""
+        server = self.mcp_server_config[server_name]
+        read, write = await self.exit_stack.enter_async_context(websocket_client(server['url']))
+        session = await self.exit_stack.enter_async_context(ClientSession(read, write))
+        await session.initialize()
+        response = await session.list_tools()
+        tools = self.get_tools(response)
+        return session, tools
+    
     async def connect_server(self):
         for sever_name in self.mcp_server_config:
             server = self.mcp_server_config[sever_name]
-            if server.get('url'):
+            if server.get('type') == 'websocket':
+                session, tools = await self.connect_websocket_server(sever_name)
+            elif server.get('url'):
                 session, tools = await self.connect_sse_server(sever_name)
             else:
                 session, tools = await self.connect_stdio_server(sever_name)
@@ -194,10 +210,11 @@ class MCPClient:
 async def test_single_server():
     try:
         client = MCPClient()
-        session, tools = await client.connect_stdio_server(server_name='time')
+        session, tools = await client.connect_stdio_server(server_name='calculator')
+        # session, tools = await client.connect_websocket_server(server_name='amap-maps')
         print(tools)
-        res = await session.call_tool("get_current_time", {"timezone": "UTC"})
-        print(res.content)
+        # res = await session.call_tool("get_current_time", {"timezone": "UTC"})
+        # print(res.content)
     finally:
         await client.cleanup()
 
@@ -213,4 +230,5 @@ async def main():
 
 if __name__ == "__main__":
     import sys
+    # asyncio.run(test_single_server())
     asyncio.run(main())
